@@ -1,98 +1,275 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { router } from "expo-router";
+import { collection, getDocs } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import {
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { useCart } from "../context/CartContext";
+import { db } from "../firebaseConfig";
 
-export default function HomeScreen() {
+export default function Home() {
+  const { cart, addToCart } = useCart();
+
+  const [foods, setFoods] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("All");
+
+  // ================= LOAD FOODS =================
+  const loadFoods = async () => {
+    const snap = await getDocs(collection(db, "foods"));
+
+    const data: any[] = [];
+    snap.forEach((doc) => {
+      data.push({ id: doc.id, ...doc.data() });
+    });
+
+    setFoods(data);
+  };
+
+  // ================= LOAD CATEGORIES =================
+  const loadCategories = async () => {
+    const snap = await getDocs(collection(db, "categories"));
+
+    const data: any[] = [];
+    snap.forEach((doc) => {
+      data.push({ id: doc.id, ...doc.data() });
+    });
+
+    setCategories(data);
+  };
+
+  useEffect(() => {
+    loadFoods();
+    loadCategories();
+  }, []);
+
+  const handleAddToCart = (item: any) => {
+    addToCart(item);
+    Alert.alert("Added", item.name);
+  };
+
+  // ================= LOGOUT =================
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: () => {
+          router.replace("/login");
+        },
+      },
+    ]);
+  };
+
+  // ================= FILTER FOODS =================
+  const filteredFoods = foods.filter((item) => {
+    const matchSearch = item.name
+      ?.toLowerCase()
+      .includes(search.toLowerCase());
+
+    const matchCategory =
+      category === "All" || item.categoryId === category;
+
+    return matchSearch && matchCategory;
+  });
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <View style={styles.container}>
+      <Text style={styles.title}>FoodFusion</Text>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      {/* LOGOUT BUTTON */}
+      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+        <Text style={{ color: "#fff", fontWeight: "bold" }}>
+          Logout
+        </Text>
+      </TouchableOpacity>
+
+      {/* TOP BUTTONS */}
+      <View style={styles.topButtons}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => router.push("/cart")}
+        >
+          <Text style={styles.buttonText}>
+            My Cart ({cart.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => router.push("/orders")}
+        >
+          <Text style={styles.buttonText}>My Orders</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ORDER NOW */}
+      <TouchableOpacity
+        style={styles.orderBtn}
+        onPress={() => router.push("/order-now")}
+      >
+        <Text style={{ color: "#fff", fontWeight: "bold" }}>
+          Order Now
+        </Text>
+      </TouchableOpacity>
+
+      {/* SEARCH */}
+      <TextInput
+        placeholder="Search food..."
+        value={search}
+        onChangeText={setSearch}
+        style={styles.search}
+      />
+
+      {/* CATEGORIES */}
+      <FlatList
+        horizontal
+        data={[{ id: "All", name: "All" }, ...categories]}
+        keyExtractor={(item) => item.id}
+        showsHorizontalScrollIndicator={false}
+        style={{ marginTop: 10 }}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={[
+              styles.catBtn,
+              category === item.id && styles.catActive,
+            ]}
+            onPress={() => setCategory(item.id)}
+          >
+            <Text
+              style={{
+                color: category === item.id ? "#fff" : "#000",
+              }}
+            >
+              {item.name}
+            </Text>
+          </TouchableOpacity>
+        )}
+      />
+
+      {/* FOOD LIST */}
+      {filteredFoods.length === 0 ? (
+        <Text style={{ textAlign: "center", marginTop: 20 }}>
+          No items found
+        </Text>
+      ) : (
+        <FlatList
+          data={filteredFoods}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <Text style={styles.foodName}>{item.name}</Text>
+              <Text>₱{item.price}</Text>
+
+              <TouchableOpacity
+                style={styles.addBtn}
+                onPress={() => handleAddToCart(item)}
+              >
+                <Text style={{ color: "#fff" }}>Add to Cart</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        />
+      )}
+    </View>
   );
 }
 
+/* ================= STYLES ================= */
+
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: "#fff",
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+
+  title: {
+    fontSize: 26,
+    fontWeight: "bold",
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+
+  logoutBtn: {
+    backgroundColor: "red",
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: "center",
+  },
+
+  topButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+
+  button: {
+    backgroundColor: "#ff6600",
+    padding: 10,
+    borderRadius: 8,
+    width: "48%",
+  },
+
+  buttonText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "bold",
+  },
+
+  orderBtn: {
+    backgroundColor: "green",
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 10,
+    alignItems: "center",
+  },
+
+  search: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+
+  catBtn: {
+    padding: 10,
+    borderWidth: 1,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+
+  catActive: {
+    backgroundColor: "#ff6600",
+  },
+
+  card: {
+    padding: 15,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    marginTop: 10,
+  },
+
+  foodName: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+
+  addBtn: {
+    marginTop: 10,
+    backgroundColor: "#28a745",
+    padding: 8,
+    borderRadius: 8,
+    alignItems: "center",
   },
 });
